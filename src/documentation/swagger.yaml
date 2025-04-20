@@ -1,0 +1,1041 @@
+openapi: "3.0.0"
+info:
+  title: "API documentation"
+  description: |
+    Backend API.
+  version: "1.0.0"
+  contact:
+    name: "Echcharqui Hamza"
+    email: "your-email@example.com"
+servers:
+  - url: "http://localhost:4000/api/v1"
+    description: "Development server"
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: "apiKey"
+      in: "header"
+      name: "x-api-key"
+    BearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+
+  responses:
+    UnauthorizedError:
+      description: "Unauthorized - Invalid or missing credentials"
+    ValidationError:
+      description: "Validation error"
+
+paths:
+  /auth/register:
+    post:
+      summary: "Register a new user"
+      description: |
+        Registers a new user in the application. 
+        Checks if the email is already in use. If valid, hashes the password and saves the user to the database.
+      tags:
+        - "Authentication"
+      security:
+        - ApiKeyAuth: []       # Requires API key in 'x-api-key' header
+      parameters:
+        - name: "x-api-key"
+          in: "header"
+          required: true
+          schema:
+            type: "string"
+          description: "API key required to access the API"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required:
+                - email
+                - password
+                - passwordConfirmation
+              properties:
+                email:
+                  type: "string"
+                  format: "email"
+                  example: "johndoe@example.com"
+                  description: "User's unique email address"
+                  minLength: 1
+                  maxLength: 255
+                password:
+                  type: "string"
+                  minLength: 8
+                  maxLength: 64
+                  example: "password123"
+                  description: "User's password"
+                passwordConfirmation:
+                  type: "string"
+                  minLength: 8
+                  maxLength: 64
+                  example: "password123"
+                  description: "Confirmation of the user's password"
+      responses:
+        201:
+          description: "User registered successfully"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: true
+                  message:
+                    type: "string"
+                    example: "User registered successfully"
+        400:
+          description: "Validation error in the input data"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  statusCode:
+                    type: "integer"
+                    example: 400
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        enum:
+                          - "Invalid Email Address"
+                          - "Email is required"
+                          - "Minimum 8 characters required"
+                          - "Password is required"
+                          - "Passwords do not match"
+                          - "Confirm password is required"
+                      label:
+                        type: "string"
+                        enum:
+                          - "email"
+                          - "password"
+                          - "passwordConfirmation"
+        409:
+          description: "Conflict - Email already in use"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: false
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        example: "Email already in use"
+        429:
+          description: "Too many requests"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  statusCode:
+                    type: "integer"
+                    example: 429
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        example: "Too many requests, please try again later"
+        500:
+          description: "Server Error"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: false
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        example: "Registration failed"
+                      details:
+                        type: "string"
+                        example: "Error details here"
+                        
+  /auth/account-verification:
+    put:
+      summary: "Verify user account"
+      description: |
+        Verifies a user's account using the confirmation token sent to their email.
+        The token must be provided in the Authorization header as a Bearer token.
+      tags:
+        - "Authentication"
+      security:
+        - ApiKeyAuth: []       # Requires API key in 'x-api-key' header
+        - BearerAuth: []       # Requires Bearer token in Authorization header
+      parameters:
+        - name: "x-api-key"
+          in: "header"
+          required: true
+          schema:
+            type: "string"
+          description: "API key required to access the API"
+        - name: "Authorization"
+          in: "header"
+          required: true
+          schema:
+            type: "string"
+          description: "Bearer token for account verification"
+      responses:
+        200:
+          description: "Account successfully verified"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: true
+                  message:
+                    type: "string"
+                    example: "Account successfully verified"
+                  user:
+                    type: "object"
+                    properties:
+                      _id:
+                        type: "string"
+                        description: "User's unique ID"
+                      email:
+                        type: "string"
+                        example: "johndoe@example.com"
+                      isValidated:
+                        type: "boolean"
+                        example: true
+        401:
+          description: "Unauthorized - Invalid or missing token"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: false
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        enum:
+                          - "Authentication failed. Token is missing"
+                          - "Authentication failed. Token has been blacklisted"
+                          - "Operation failed. Token is invalid or expired"
+        404:
+          description: "User not found"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: false
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        example: "User not found"
+        409:
+          description: "Conflict - Account is already verified"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: false
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        example: "Account is already verified"
+        500:
+          description: "Server Error"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: false
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        example: "Server Error. Please try again later"
+                      details:
+                        type: "string"
+                        example: "Error details here" 
+
+  /auth/resend-new-confirmation-email:
+    post:
+      summary: "Resend account confirmation email"
+      description: |
+        Resends a new account confirmation email to the user's registered email address.
+        Requires the user's email address in the request body.
+      tags:
+        - "Authentication"
+      security:
+        - ApiKeyAuth: []       # Requires API key in 'x-api-key' header
+      parameters:
+        - name: "x-api-key"
+          in: "header"
+          required: true
+          schema:
+            type: "string"
+          description: "API key required to access the API"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required:
+                - email
+              properties:
+                email:
+                  type: "string"
+                  format: "email"
+                  example: "johndoe@example.com"
+                  description: "User's registered email address"
+      responses:
+        201:
+          description: "Confirmation email resent successfully"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: true
+                  message:
+                    type: "string"
+                    example: "A new confirmation email has been sent to your email address"
+        400:
+          description: "Validation error in the input data"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  statusCode:
+                    type: "integer"
+                    example: 400
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        example: "Invalid Email Address"
+                      label:
+                        type: "string"
+                        example: "email"
+        404:
+          description: "User not found"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: false
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        example: "User not found"
+        409:
+          description: "Conflict - Account is already verified"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: false
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        example: "Account is already verified"
+        429:
+          description: "Too many requests"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  statusCode:
+                    type: "integer"
+                    example: 429
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        example: "Too many requests, please try again later"
+        500:
+          description: "Server Error"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: false
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        example: "Failed to resend confirmation email"
+                      details:
+                        type: "string"
+                        example: "Error details here" 
+
+  /auth/login:
+    post:
+      summary: "User login"
+      description: |
+        Authenticates a user and returns access and refresh tokens.
+        Requires valid email and password.
+        Note: Account must be validated before login.
+      tags:
+        - "Authentication"
+      security:
+        - ApiKeyAuth: []       # Requires API key in 'x-api-key' header
+      parameters:
+        - name: "x-api-key"
+          in: "header"
+          required: true
+          schema:
+            type: "string"
+          description: "API key required to access the API"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: "string"
+                  format: "email"
+                  example: "johndoe@example.com"
+                  description: "User's registered email address"
+                password:
+                  type: "string"
+                  minLength: 8
+                  maxLength: 64
+                  example: "password123"
+                  description: "User's password"
+      responses:
+        200:
+          description: "Login successful"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: true
+                  _id:
+                    type: "string"
+                    description: "User's unique ID"
+                  email:
+                    type: "string"
+                    example: "johndoe@example.com"
+                  isValidated:
+                    type: "boolean"
+                    example: true
+                  accessToken:
+                    type: "string"
+                    description: "JWT access token for authentication"
+                  refreshToken:
+                    type: "string"
+                    description: "JWT refresh token for renewing access"
+        400:
+          description: "Validation error in the input data"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  statusCode:
+                    type: "integer"
+                    example: 400
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        enum:
+                          - "Invalid Email Address"
+                          - "Email is required"
+                          - "Minimum 8 characters required"
+                          - "Password cannot exceed 64 characters"
+                          - "Password is required"
+                      label:
+                        type: "string"
+                        enum:
+                          - "email"
+                          - "password"
+        401:
+          description: "Unauthorized - Invalid credentials"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: false
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        example: "Login Failed. Please check your credentials and try again"
+        409:
+          description: "Conflict - Account not validated"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: false
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        example: "Account is not yet verified"
+        429:
+          description: "Too many requests"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  statusCode:
+                    type: "integer"
+                    example: 429
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        example: "Too many requests, please try again later"
+        500:
+          description: "Server Error"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: false
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        example: "Login failed"
+                      details:
+                        type: "string"
+                        example: "Error details here"
+
+  /auth/check-access-token:
+    get:
+      summary: "Check access token validity"
+      description: |
+        Validates the current access token and returns user information.
+        Requires a valid access token in the Authorization header.
+      tags:
+        - "Authentication"
+      security:
+        - ApiKeyAuth: []       # Requires API key in 'x-api-key' header
+        - BearerAuth: []       # Requires Bearer token in Authorization header
+      parameters:
+        - name: "x-api-key"
+          in: "header"
+          required: true
+          schema:
+            type: "string"
+          description: "API key required to access the API"
+        - name: "Authorization"
+          in: "header"
+          required: true
+          schema:
+            type: "string"
+          description: "Bearer token for authentication"
+      responses:
+        200:
+          description: "Token is valid"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: true
+                  user:
+                    type: "object"
+                    properties:
+                      _id:
+                        type: "string"
+                        description: "User's unique ID"
+                      email:
+                        type: "string"
+                        example: "johndoe@example.com"
+                      isValidated:
+                        type: "boolean"
+                        example: true
+        401:
+          description: "Unauthorized - Invalid or missing token"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: false
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        enum:
+                          - "Authentication failed. Token is missing"
+                          - "Authentication failed. Token has been blacklisted"
+                          - "Operation failed. Token is invalid or expired"
+        500:
+          description: "Server Error"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: false
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        example: "Server Error. Please try again later"
+
+  /auth/refresh-access-token:
+    post:
+      summary: "Refresh access token"
+      description: |
+        Generates a new access token using a valid refresh token.
+        Requires a valid refresh token in the x-refresh-token header.
+      tags:
+        - "Authentication"
+      security:
+        - ApiKeyAuth: []       # Requires API key in 'x-api-key' header
+      parameters:
+        - name: "x-api-key"
+          in: "header"
+          required: true
+          schema:
+            type: "string"
+          description: "API key required to access the API"
+        - name: "x-refresh-token"
+          in: "header"
+          required: true
+          schema:
+            type: "string"
+          description: "Bearer token for refresh token"
+      responses:
+        200:
+          description: "New access token generated"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: true
+                  accessToken:
+                    type: "string"
+                    description: "New JWT access token"
+        401:
+          description: "Unauthorized - Invalid or missing refresh token"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: false
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        enum:
+                          - "Authentication failed. Token is missing"
+                          - "Authentication failed. Token has been blacklisted"
+                          - "Operation failed. Token is invalid or expired"
+        500:
+          description: "Server Error"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: false
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        example: "Server Error. Please try again later"
+
+  /auth/forgot-password:
+    post:
+      summary: "Initiate password reset"
+      description: |
+        Initiates the password reset process by sending a reset token to the user's email.
+        Requires the user's email address in the request body.
+      tags:
+        - "Authentication"
+      security:
+        - ApiKeyAuth: []       # Requires API key in 'x-api-key' header
+      parameters:
+        - name: "x-api-key"
+          in: "header"
+          required: true
+          schema:
+            type: "string"
+          description: "API key required to access the API"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required:
+                - email
+              properties:
+                email:
+                  type: "string"
+                  format: "email"
+                  example: "johndoe@example.com"
+                  description: "User's registered email address"
+      responses:
+        200:
+          description: "Password reset email sent"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: true
+                  message:
+                    type: "string"
+                    example: "A password reset email has been sent to your email address"
+        404:
+          description: "User not found"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: false
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        example: "User is not found"
+        500:
+          description: "Server Error"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: false
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        example: "Password reset failed"
+                      details:
+                        type: "string"
+                        example: "Error details here"
+
+  /auth/reset-password:
+    put:
+      summary: "Complete password reset"
+      description: |
+        Completes the password reset process using the reset token.
+        Requires a valid reset token in the Authorization header and new password in the request body.
+      tags:
+        - "Authentication"
+      security:
+        - ApiKeyAuth: []       # Requires API key in 'x-api-key' header
+        - BearerAuth: []       # Requires Bearer token in Authorization header
+      parameters:
+        - name: "x-api-key"
+          in: "header"
+          required: true
+          schema:
+            type: "string"
+          description: "API key required to access the API"
+        - name: "Authorization"
+          in: "header"
+          required: true
+          schema:
+            type: "string"
+          description: "Bearer token for password reset"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required:
+                - password
+                - passwordConfirmation
+              properties:
+                password:
+                  type: "string"
+                  minLength: 8
+                  maxLength: 64
+                  example: "newpassword123"
+                  description: "New password for the user"
+                passwordConfirmation:
+                  type: "string"
+                  example: "newpassword123"
+                  description: "Confirmation of the new password"
+      responses:
+        200:
+          description: "Password reset successfully"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: true
+                  message:
+                    type: "string"
+                    example: "Password reset successfully"
+        401:
+          description: "Unauthorized - Invalid or missing token"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: false
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        enum:
+                          - "Authentication failed. Token is missing"
+                          - "Authentication failed. Token has been blacklisted"
+                          - "Operation failed. Token is invalid or expired"
+        400:
+          description: "Validation error in the input data"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  statusCode:
+                    type: "integer"
+                    example: 400
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        enum:
+                          - "Minimum 8 characters required"
+                          - "Password is required"
+                          - "Passwords do not match"
+                          - "Confirm password is required"
+                      label:
+                        type: "string"
+                        enum:
+                          - "password"
+                          - "passwordConfirmation"
+        500:
+          description: "Server Error"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: false
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        example: "Password reset failed"
+                      details:
+                        type: "string"
+                        example: "Error details here"
+
+  /auth/logout:
+    post:
+      summary: "User logout"
+      description: |
+        Logs out the user by blacklisting the access and refresh tokens.
+        Requires valid access and refresh tokens in the headers.
+      tags:
+        - "Authentication"
+      security:
+        - ApiKeyAuth: []       # Requires API key in 'x-api-key' header
+        - BearerAuth: []       # Requires Bearer token in Authorization header
+      parameters:
+        - name: "x-api-key"
+          in: "header"
+          required: true
+          schema:
+            type: "string"
+          description: "API key required to access the API"
+        - name: "Authorization"
+          in: "header"
+          required: true
+          schema:
+            type: "string"
+          description: "Bearer token for access token"
+        - name: "x-refresh-token"
+          in: "header"
+          required: true
+          schema:
+            type: "string"
+          description: "Bearer token for refresh token"
+      responses:
+        200:
+          description: "Logged out successfully"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: true
+                  message:
+                    type: "string"
+                    example: "Logged out successfully"
+        400:
+          description: "Bad Request - Missing token"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: false
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        example: "Token is required"
+        401:
+          description: "Unauthorized - Invalid or missing token"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: false
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        enum:
+                          - "Authentication failed. Token is missing"
+                          - "Authentication failed. Token has been blacklisted"
+                          - "Operation failed. Token is invalid or expired"
+        500:
+          description: "Server Error"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  success:
+                    type: "boolean"
+                    example: false
+                  error:
+                    type: "object"
+                    properties:
+                      message:
+                        type: "string"
+                        example: "Logout failed"
+                      details:
+                        type: "string"
+                        example: "Error details here"
